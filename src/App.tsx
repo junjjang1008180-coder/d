@@ -43,9 +43,12 @@ function App() {
   // 초경량 전역 좌표 공유 Ref (리액트 리렌더링 없이 매 프레임 가상 버튼들과 데이터 연동)
   const sharedPointerRef = useRef({ x: 0, y: 0, isDetected: false });
 
-  // 유틸리티 클래스 Ref
-  const detectorRef = useRef<GestureDetector | null>(null);
+  // 유틸리티 클래스 Ref (각 손마다 별도 GestureDetector 인스턴스를 할당하여 스와이프 이력을 독립적으로 유지)
+  const detectorRefs = useRef<GestureDetector[]>([new GestureDetector(), new GestureDetector()]);
   const particleSystemRef = useRef<ParticleSystem | null>(null);
+
+  // 양손 특수 이펙트 상태 표시 데이터
+  const [dualEffect, setDualEffect] = useState<string>('NONE');
 
   // 실시간 트래킹 프레임 이력 및 계산용 변수
   const currentHandResultsRef = useRef<any>(null);
@@ -71,10 +74,10 @@ function App() {
   useEffect(() => {
     // 1. 유틸리티 및 파티클 시스템 인스턴스 초기화
     if (!canvasRef.current) return;
-    detectorRef.current = new GestureDetector();
+    detectorRefs.current = [new GestureDetector(), new GestureDetector()];
     particleSystemRef.current = new ParticleSystem(canvasRef.current);
 
-    const detector = detectorRef.current;
+    const detectors = detectorRefs.current;
     const particles = particleSystemRef.current;
 
     // 2. MediaPipe 가동 준비
@@ -88,13 +91,13 @@ function App() {
     });
 
     hands.setOptions({
-      maxNumHands: 1, // 한 손만 트래킹
+      maxNumHands: 2, // 양손 트래킹 활성화
       modelComplexity: 1,
       minDetectionConfidence: 0.5,
       minTrackingConfidence: 0.5
     });
 
-    // 스켈레톤 드로잉 헬퍼
+    // 스켈레톤 드로잉 헬퍼 (양손 모두 지원)
     const drawSkeleton = (results: any) => {
       const canvas = debugCanvasRef.current;
       if (!canvas) return;
@@ -107,36 +110,41 @@ function App() {
 
       if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
 
-      const landmarks = results.multiHandLandmarks[0];
+      results.multiHandLandmarks.forEach((landmarks: any, handIndex: number) => {
+        // 첫 번째 손: 청색, 두 번째 손: 노란색
+        const lineColor = handIndex === 0 ? 'rgba(0, 240, 255, 0.6)' : 'rgba(255, 165, 0, 0.6)';
+        const shadowColor = handIndex === 0 ? '#00f0ff' : '#ffa500';
+        const dotTipColor = handIndex === 0 ? '#bd00ff' : '#ff4500';
+        const dotColor = handIndex === 0 ? '#39ff14' : '#ffd700';
 
-      // 1. 관절 연결선 그리기
-      ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
-      ctx.lineWidth = 3;
-      ctx.shadowBlur = 4;
-      ctx.shadowColor = '#00f0ff'; // neon-blue
+        // 1. 관절 연결선 그리기
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 4;
+        ctx.shadowColor = shadowColor;
 
-      HAND_CONNECTIONS.forEach(([startIdx, endIdx]) => {
-        const start = landmarks[startIdx];
-        const end = landmarks[endIdx];
-        ctx.beginPath();
-        ctx.moveTo(start.x * width, start.y * height);
-        ctx.lineTo(end.x * width, end.y * height);
-        ctx.stroke();
-      });
+        HAND_CONNECTIONS.forEach(([startIdx, endIdx]) => {
+          const start = landmarks[startIdx];
+          const end = landmarks[endIdx];
+          ctx.beginPath();
+          ctx.moveTo(start.x * width, start.y * height);
+          ctx.lineTo(end.x * width, end.y * height);
+          ctx.stroke();
+        });
 
-      // 2. 관절 마디 포인트 그리기
-      ctx.shadowBlur = 0;
-      landmarks.forEach((lm: any, idx: number) => {
-        ctx.beginPath();
-        ctx.arc(lm.x * width, lm.y * height, 4, 0, Math.PI * 2);
-        
-        if ([4, 8, 12, 16, 20].includes(idx)) {
-          ctx.fillStyle = '#bd00ff'; // neon-purple
-          ctx.arc(lm.x * width, lm.y * height, 2, 0, Math.PI * 2); // 이중 원
-        } else {
-          ctx.fillStyle = '#39ff14'; // neon-green
-        }
-        ctx.fill();
+        // 2. 관절 마디 포인트 그리기
+        ctx.shadowBlur = 0;
+        landmarks.forEach((lm: any, idx: number) => {
+          ctx.beginPath();
+          ctx.arc(lm.x * width, lm.y * height, 4, 0, Math.PI * 2);
+          if ([4, 8, 12, 16, 20].includes(idx)) {
+            ctx.fillStyle = dotTipColor;
+            ctx.arc(lm.x * width, lm.y * height, 2, 0, Math.PI * 2);
+          } else {
+            ctx.fillStyle = dotColor;
+          }
+          ctx.fill();
+        });
       });
     };
 
@@ -163,12 +171,16 @@ function App() {
       }
 
       // 커서 스타일 및 링 이펙트 변화
-      if (handData.gesture === 'POINTING' || handData.gesture === 'PINCH') {
+      if (handData.gesture === 'POINTING' || handData.gesture === 'PINCH' || handData.gesture === 'ERASE') {
         cursor.style.opacity = '1';
         if (handData.gesture === 'PINCH') {
           ring.style.borderColor = 'var(--neon-purple)';
           ring.style.transform = 'scale(0.7)';
           ring.style.boxShadow = '0 0 10px var(--neon-purple)';
+        } else if (handData.gesture === 'ERASE') {
+          ring.style.borderColor = 'var(--neon-red)';
+          ring.style.transform = 'scale(1.2)';
+          ring.style.boxShadow = '0 0 12px var(--neon-red)';
         } else {
           ring.style.borderColor = 'var(--neon-blue)';
           ring.style.transform = 'scale(1.0)';
@@ -255,52 +267,75 @@ function App() {
         fpsCalcRef.current.lastTime = now;
       }
 
-      // 손 정보 가공
+      // 손 정보 가공 (두 손 모두 처리)
       let handData: HandData = {
         isDetected: false,
         gesture: 'NONE',
         pointer: { x: 0, y: 0 },
         palmCenter: { x: 0, y: 0 }
       };
+      let secondHandData: HandData | null = null;
 
       const results = currentHandResultsRef.current;
       const canvas = canvasRef.current;
+      const numDetected = results?.multiHandLandmarks?.length ?? 0;
 
-      if (
-        canvas &&
-        results &&
-        results.multiHandLandmarks &&
-        results.multiHandLandmarks.length > 0
-      ) {
-        const landmarks = results.multiHandLandmarks[0];
-        const detection = detector.detect(landmarks);
-        
-        // 검지 손가락 끝(8번)을 포인터 좌표로 사용
-        const indexTip = landmarks[8];
-        // 손바닥 중심(9번)을 중심 좌표로 사용
-        const palmCenter = landmarks[9];
-
+      if (canvas && results && numDetected > 0) {
+        // 첫 번째 손
+        const landmarks0 = results.multiHandLandmarks[0];
+        const detection0 = detectors[0].detect(landmarks0);
         handData = {
           isDetected: true,
-          gesture: detection.name,
-          pointer: indexTip,
-          palmCenter: palmCenter
+          gesture: detection0.name,
+          pointer: landmarks0[8],
+          palmCenter: landmarks0[9]
         };
 
-        setActiveGesture(detection.name);
+        setActiveGesture(detection0.name);
 
-        // 커서 좌표 갱신 (DOM 직접 쓰기)
+        if (detection0.name === 'ERASE') {
+          particles.clearDrawCanvas();
+        }
+
         updateCursorUI(handData, canvas.width, canvas.height);
+
+        // 두 번째 손 처리
+        if (numDetected > 1) {
+          const landmarks1 = results.multiHandLandmarks[1];
+          const detection1 = detectors[1].detect(landmarks1);
+          secondHandData = {
+            isDetected: true,
+            gesture: detection1.name,
+            pointer: landmarks1[8],
+            palmCenter: landmarks1[9]
+          };
+
+          // 양손 특수 이펙트 상태 표시
+          const g0 = detection0.name;
+          const g1 = detection1.name;
+          if (g0 === 'FIST' && g1 === 'FIST') {
+            setDualEffect('ENERGY_BEAM');
+          } else if (g0 === 'OPEN_PALM' && g1 === 'OPEN_PALM') {
+            setDualEffect('BIG_BANG');
+          } else if (g0 === 'POINTING' && g1 === 'POINTING') {
+            setDualEffect('VORTEX');
+          } else {
+            setDualEffect('NONE');
+          }
+        } else {
+          setDualEffect('NONE');
+        }
       } else {
         setActiveGesture('NONE');
+        setDualEffect('NONE');
         sharedPointerRef.current.isDetected = false;
         if (cursorRef.current) {
           cursorRef.current.style.opacity = '0';
         }
       }
 
-      // 파티클 물리 갱신 및 렌더링
-      particles.updateAndRender(handData);
+      // 파티클 물리 갱신 및 렌더링 (양손 데이터 반영)
+      particles.updateAndRender(handData, secondHandData);
 
       animationFrameId = requestAnimationFrame(renderLoop);
     };
@@ -325,18 +360,7 @@ function App() {
       <LoadingOverlay isLoading={!isModelLoaded} statusMessage={statusMessage} />
 
       {/* 제어판 & 상태 패널 사이드바 */}
-      <Sidebar
-        fps={fps}
-        handsCount={handsCount}
-        activeGesture={activeGesture}
-        showWebcam={showWebcam}
-        setShowWebcam={setShowWebcam}
-        isSkeletonVisible={isSkeletonVisible}
-        setIsSkeletonVisible={setIsSkeletonVisible}
-        activeTheme={activeTheme}
-        setActiveTheme={setActiveTheme}
-        onClearCanvas={handleClearCanvas}
-      />
+
 
       {/* 메인 뷰포트 (인터랙션 스크린) */}
       <Viewport

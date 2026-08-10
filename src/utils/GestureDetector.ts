@@ -81,35 +81,46 @@ export class GestureDetector {
     const thumbDistanceToMiddle = this.getDistance(thumbTip, middleMCP) / handScale;
     const isThumbExtended = thumbDistanceToMiddle > 0.65;
 
-    // 꼬집기(Pinch) 판정: 엄지 끝과 검지 끝의 정규화 거리가 매우 가까운 상태
-    const pinchDistance = this.getDistance(thumbTip, indexTip) / handScale;
-    const isPinching = pinchDistance < 0.28;
+    // 꼬집기(Pinch) 판정: 엄지, 검지, 중지 세 손가락 끝 정규화 거리가 모두 가까운 상태 (3핑거 핀치)
+    const pinchDistanceTI = this.getDistance(thumbTip, indexTip) / handScale;
+    const pinchDistanceTM = this.getDistance(thumbTip, middleTip) / handScale;
+    const pinchDistanceIM = this.getDistance(indexTip, middleTip) / handScale;
+    
+    const isPinching = pinchDistanceTI < 0.32 && pinchDistanceTM < 0.32 && pinchDistanceIM < 0.32;
+
+    // 지우개(Eraser) 판정: 검지와 중지는 펴져 있고, 약지와 새끼는 접힌 가위/V 모양
+    const isEraser = isIndexExtended && isMiddleExtended && !isRingExtended && !isPinkyExtended;
 
     // 스와이프 감지를 위한 이력 데이터 업데이트 (중지 기저부 9번을 손의 대표 위치로 사용)
     this.updateHistory(middleMCP);
     const swipeGesture = this.detectSwipe();
     if (swipeGesture !== 'NONE') {
-      return { name: swipeGesture, confidence: 0.9, details: { pinchDistance } };
+      return { name: swipeGesture, confidence: 0.9, details: { pinchDistance: pinchDistanceTI } };
     }
 
     // 기본 제스처 판정 우선순위
     
     // 1. 꼬집기 (Pinch) - 드로잉 모드에 우선순위 부여
     if (isPinching) {
-      return { name: 'PINCH', confidence: 0.9, details: { pinchDistance } };
+      return { name: 'PINCH', confidence: 0.9, details: { pinchDistance: pinchDistanceTI } };
     }
 
-    // 2. 주먹 (Fist) - 네 손가락이 모두 접힘
+    // 2. 지우개 (Eraser) - 검지, 중지만 펼치고 나머지는 접힘
+    if (isEraser) {
+      return { name: 'ERASE', confidence: 0.95 };
+    }
+
+    // 3. 주먹 (Fist) - 네 손가락이 모두 접힘
     if (!isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
       return { name: 'FIST', confidence: 0.95 };
     }
 
-    // 3. 보자기 (Open Palm) - 네 손가락이 모두 펴짐
+    // 4. 보자기 (Open Palm) - 네 손가락이 모두 펴짐
     if (isIndexExtended && isMiddleExtended && isRingExtended && isPinkyExtended) {
       return { name: 'OPEN_PALM', confidence: 0.95 };
     }
 
-    // 4. 검지 가리키기 (Pointing) - 검지만 펴지고 중지/약지/새끼는 접힘
+    // 5. 검지 가리키기 (Pointing) - 검지만 펴지고 중지/약지/새끼는 접힘
     if (isIndexExtended && !isMiddleExtended && !isRingExtended && !isPinkyExtended) {
       return { name: 'POINTING', confidence: 0.9 };
     }

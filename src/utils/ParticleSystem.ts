@@ -154,6 +154,8 @@ export class ParticleSystem {
   private currentDrawingPath: DrawingPath | null;
   private theme: ParticleTheme;
   private resizeHandler: () => void;
+  // 빅뱅 연속 트리거 방지용 쿨다운
+  private bigBangCooldown: number;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -166,6 +168,7 @@ export class ParticleSystem {
     this.drawPaths = [];
     this.currentDrawingPath = null;
     this.theme = 'cosmic'; // 기본 테마
+    this.bigBangCooldown = 0;
     this.resize();
 
     this.resizeHandler = () => this.resize();
@@ -227,10 +230,13 @@ export class ParticleSystem {
   }
 
   // 매 프레임 업데이트 및 렌더링
-  public updateAndRender(handData: HandData | null): void {
+  public updateAndRender(handData: HandData | null, secondHand?: HandData | null): void {
     const ctx = this.ctx;
     const width = this.canvas.width;
     const height = this.canvas.height;
+
+    // 빅뱅 쿨다운 감소
+    if (this.bigBangCooldown > 0) this.bigBangCooldown--;
 
     // 잔상 효과를 위해 화면을 아주 살짝 지우며 덧칠
     ctx.fillStyle = 'rgba(5, 6, 11, 0.2)';
@@ -239,14 +245,10 @@ export class ParticleSystem {
     // 1. 에어 드로잉 그리기 (파티클 아래 레이어로 렌더링)
     this.renderDrawingPaths();
 
-    // 손가락 위치에 따른 파티클 생성 및 외력 처리
-    const extAccX = 0;
-    const extAccY = 0;
-
-    if (handData && handData.isDetected) {
-      const pointer = handData.pointer;
-      const palm = handData.palmCenter;
-      const gesture = handData.gesture;
+    const processHand = (hand: HandData) => {
+      const pointer = hand.pointer;
+      const palm = hand.palmCenter;
+      const gesture = hand.gesture;
 
       // 화면 크기에 맞게 좌표 역정규화 (카메라 X 좌표 반전)
       const px = (1 - pointer.x) * width;
@@ -254,65 +256,97 @@ export class ParticleSystem {
       const palmx = (1 - palm.x) * width;
       const palmy = palm.y * height;
 
-      // 제스처가 POINTING, PINCH 또는 OPEN_PALM일 때 포인터 주변에 파티클 스폰
       if (gesture === 'POINTING') {
-        // 검지 끝에서 지속적으로 스파크 파티클 분출
         for (let i = 0; i < 4; i++) {
           this.particles.push(new Particle(px, py, this.theme, 0.7));
         }
       } else if (gesture === 'PINCH') {
-        // 드로잉 시 소량의 스파크 생성
         for (let i = 0; i < 2; i++) {
           this.particles.push(new Particle(px, py, this.theme, 0.4));
         }
-        // 에어 드로잉 경로에 포인트 추가
         this.addDrawPoint(px, py);
       } else {
-        // Pinch 제스처가 아닌 경우 그리기 획 중단
         this.endDrawPath();
       }
 
       if (gesture !== 'PINCH' && gesture !== 'POINTING' && gesture !== 'NONE') {
-        // 다른 제스처일 때는 손가락 위치 말고 손바닥 위치 근처에 부드럽게 파티클을 스폰해 힘의 흐름을 보여줌
         if (Math.random() < 0.3) {
           this.particles.push(new Particle(palmx + (Math.random()-0.5)*100, palmy + (Math.random()-0.5)*100, this.theme, 0.3));
         }
       }
 
-      // 제스처 모드별 외력 가속도 연산
       if (gesture === 'FIST') {
-        // 주먹: 블랙홀 흡입 (파티클들이 손바닥 중심으로 끌려옴)
         this.particles.forEach(p => {
           const dx = palmx - p.x;
           const dy = palmy - p.y;
           const dist = Math.max(Math.hypot(dx, dy), 30);
           if (dist < 600) {
-            const force = (600 - dist) / 3500; // 거리가 가까울수록 당기는 힘 세짐
+            const force = (600 - dist) / 3500;
             p.vx += (dx / dist) * force;
             p.vy += (dy / dist) * force;
           }
         });
       } else if (gesture === 'OPEN_PALM') {
-        // 보자기: 바람 효과 (파티클들이 손바닥 중심에서 사방으로 튕겨 나감)
         this.particles.forEach(p => {
           const dx = p.x - palmx;
           const dy = p.y - palmy;
           const dist = Math.max(Math.hypot(dx, dy), 10);
           if (dist < 400) {
-            const force = (400 - dist) / 1200; // 밀쳐내는 힘
+            const force = (400 - dist) / 1200;
             p.vx += (dx / dist) * force;
             p.vy += (dy / dist) * force;
           }
         });
       }
+
+      return { palmx, palmy, px, py };
+    };
+
+    let hand0Coords: { palmx: number; palmy: number; px: number; py: number } | null = null;
+    let hand1Coords: { palmx: number; palmy: number; px: number; py: number } | null = null;
+
+    if (handData && handData.isDetected) {
+      hand0Coords = processHand(handData);
     } else {
-      // 손 감지되지 않았을 때 드로잉 경로 마무리
       this.endDrawPath();
+    }
+
+    if (secondHand && secondHand.isDetected) {
+      hand1Coords = processHand(secondHand);
+    }
+
+    // ─── 양손 특수 이펙트 ───
+    if (hand0Coords && hand1Coords && handData && secondHand) {
+      const g0 = handData.gesture;
+      const g1 = secondHand.gesture;
+
+      const midX = (hand0Coords.palmx + hand1Coords.palmx) / 2;
+      const midY = (hand0Coords.palmy + hand1Coords.palmy) / 2;
+      const beamDist = Math.hypot(hand0Coords.palmx - hand1Coords.palmx, hand0Coords.palmy - hand1Coords.palmy);
+
+      // ⚡ ENERGY BEAM: 양손 주먹을 일정 거리 이내로 모으면 두 손 사이에 에너지 빔 생성
+      if (g0 === 'FIST' && g1 === 'FIST' && beamDist < width * 0.5) {
+        this.renderEnergyBeam(
+          hand0Coords.palmx, hand0Coords.palmy,
+          hand1Coords.palmx, hand1Coords.palmy
+        );
+      }
+
+      // 💥 BIG BANG: 양손 보자기를 펼쳤을 때 (연속 방지 쿨다운 적용)
+      if (g0 === 'OPEN_PALM' && g1 === 'OPEN_PALM' && this.bigBangCooldown === 0) {
+        this.triggerBigBang(midX, midY, width, height);
+        this.bigBangCooldown = 90; // 약 1.5초 쿨다운 (60FPS 기준)
+      }
+
+      // 🌀 VORTEX: 양손 포인팅 자세로 두 손 사이 중간에 소용돌이 생성
+      if (g0 === 'POINTING' && g1 === 'POINTING') {
+        this.renderVortex(midX, midY, beamDist);
+      }
     }
 
     // 2. 파티클 업데이트 및 렌더링
     this.particles = this.particles.filter(p => {
-      p.update(extAccX, extAccY);
+      p.update();
       p.draw(ctx);
       return p.life > 0;
     });
@@ -326,6 +360,125 @@ export class ParticleSystem {
         0.1
       ));
     }
+  }
+
+  // ⚡ ENERGY BEAM: 두 손 사이를 잇는 플라즈마 빔 렌더링
+  private renderEnergyBeam(x0: number, y0: number, x1: number, y1: number): void {
+    const ctx = this.ctx;
+    const beamColors: Record<ParticleTheme, string[]> = {
+      cosmic: ['#00f0ff', '#bd00ff'],
+      neon:   ['#39ff14', '#ff0080'],
+      aurora: ['#00ffcc', '#0080ff'],
+    };
+    const [c0, c1] = beamColors[this.theme];
+    const dist = Math.hypot(x1 - x0, y1 - y0);
+
+    // 빔 본체 (그라디언트 선)
+    ctx.save();
+    const grad = ctx.createLinearGradient(x0, y0, x1, y1);
+    grad.addColorStop(0, c0);
+    grad.addColorStop(0.5, '#ffffff');
+    grad.addColorStop(1, c1);
+
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = 3 + Math.sin(Date.now() * 0.02) * 2; // 떨리는 굵기
+    ctx.shadowBlur = 25;
+    ctx.shadowColor = c0;
+    ctx.stroke();
+
+    // 빔 외곽 글로우 레이어
+    ctx.globalAlpha = 0.3;
+    ctx.lineWidth = 12;
+    ctx.shadowBlur = 40;
+    ctx.stroke();
+    ctx.restore();
+
+    // 빔 경로 위에 파티클 산개
+    const steps = Math.floor(dist / 30);
+    for (let i = 0; i < steps; i++) {
+      const t = i / steps;
+      const bx = x0 + (x1 - x0) * t + (Math.random() - 0.5) * 15;
+      const by = y0 + (y1 - y0) * t + (Math.random() - 0.5) * 15;
+      if (Math.random() < 0.4) {
+        this.particles.push(new Particle(bx, by, this.theme, 0.5));
+      }
+    }
+  }
+
+  // 💥 BIG BANG: 지정 중심에서 폭발적으로 파티클 방출
+  public triggerBigBang(cx: number, cy: number, width: number, height: number): void {
+    const count = 400;
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const speed = 3 + Math.random() * 8;
+      const p = new Particle(cx, cy, this.theme, speed * 0.5);
+      // 방사형으로 초기 속도 부여
+      p.vx = Math.cos(angle) * speed;
+      p.vy = Math.sin(angle) * speed;
+      p.maxLife = 80 + Math.random() * 60;
+      p.life = p.maxLife;
+      this.particles.push(p);
+    }
+    // 화면 전체에 추가 환경 파티클 폭발 산포
+    for (let i = 0; i < 80; i++) {
+      this.particles.push(new Particle(
+        Math.random() * width,
+        Math.random() * height,
+        this.theme,
+        2.5
+      ));
+    }
+  }
+
+  // 🌀 VORTEX: 중간 지점 중심으로 나선형 소용돌이 생성
+  private renderVortex(cx: number, cy: number, radius: number): void {
+    const effectiveRadius = Math.max(radius * 0.5, 60);
+    const now = Date.now();
+
+    // 소용돌이 중심에 새 파티클 나선형 생성
+    for (let i = 0; i < 3; i++) {
+      const angle = (now * 0.004 + i * (Math.PI * 2 / 3));
+      const r = effectiveRadius * (0.3 + Math.random() * 0.7);
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      const particle = new Particle(px, py, this.theme, 0.3);
+      // 접선 방향 속도를 부여하여 궤도 회전 효과
+      particle.vx = -Math.sin(angle) * 2.5;
+      particle.vy = Math.cos(angle) * 2.5;
+      this.particles.push(particle);
+    }
+
+    // 주변 기존 파티클에 회전력 부여 (중심으로 끌어당기며 회전)
+    this.particles.forEach(p => {
+      const dx = cx - p.x;
+      const dy = cy - p.y;
+      const dist = Math.max(Math.hypot(dx, dy), 10);
+      if (dist < effectiveRadius * 1.5) {
+        const pullForce = 0.04 * (1 - dist / (effectiveRadius * 1.5));
+        // 중심 방향 인력
+        p.vx += (dx / dist) * pullForce;
+        p.vy += (dy / dist) * pullForce;
+        // 접선 방향 회전력
+        p.vx += (-dy / dist) * pullForce * 1.5;
+        p.vy += (dx / dist) * pullForce * 1.5;
+      }
+    });
+
+    // 소용돌이 중심 글로우 렌더링
+    const ctx = this.ctx;
+    ctx.save();
+    const vortexGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, effectiveRadius * 0.5);
+    vortexGrad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+    vortexGrad.addColorStop(0.4, 'rgba(0, 240, 255, 0.06)');
+    vortexGrad.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, effectiveRadius * 0.5, 0, Math.PI * 2);
+    ctx.fillStyle = vortexGrad;
+    ctx.fill();
+    ctx.restore();
   }
 
   // 에어 드로잉 획 렌더링

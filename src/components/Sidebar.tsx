@@ -36,6 +36,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return 'neon-text-purple';
       case 'POINTING':
         return 'neon-text-blue';
+      case 'ERASE':
+        return 'neon-text-red';
       default:
         return '';
     }
@@ -92,10 +94,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </li>
           <li>
-            <span className="gesture-icon">👌</span>
+            <span className="gesture-icon">🤌</span>
             <div>
-              <strong>Pinch (꼬집기)</strong>
-              <p>공중 캔버스 그리기 (Air Draw)</p>
+              <strong>Pinch (3핑거 모으기)</strong>
+              <p>엄지·검지·중지 모으기 → Air Draw</p>
             </div>
           </li>
           <li>
@@ -103,6 +105,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div>
               <strong>Point (가리키기)</strong>
               <p>타겟 이동 / 가상 UI 조작</p>
+            </div>
+          </li>
+          <li>
+            <span className="gesture-icon">✌️</span>
+            <div>
+              <strong>Erase (지우기)</strong>
+              <p>검지·중지 펴기 → 에어 캔버스 초기화</p>
             </div>
           </li>
         </ul>
