@@ -1,0 +1,513 @@
+/* 전역 스타일 초기화 */
+:root {
+  --bg-color: #05060b;
+  --panel-bg: rgba(10, 15, 30, 0.6);
+  --panel-border: rgba(0, 240, 255, 0.15);
+  --neon-blue: #00f0ff;
+  --neon-purple: #bd00ff;
+  --neon-green: #39ff14;
+  --neon-red: #ff3b30;
+  --text-primary: #ffffff;
+  --text-secondary: #8e9bb0;
+  --font-main: 'Inter', sans-serif;
+  --font-sci-fi: 'Orbitron', sans-serif;
+  --glow-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* 폰트 유틸리티 */
+.orbitron {
+  font-family: var(--font-sci-fi);
+  letter-spacing: 1px;
+}
+
+/* 네온 텍스트 효과 */
+.neon-text {
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.6), 0 0 20px rgba(0, 240, 255, 0.3);
+}
+.neon-text-blue {
+  color: var(--neon-blue);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.5);
+}
+.neon-text-purple {
+  color: var(--neon-purple);
+  text-shadow: 0 0 8px rgba(189, 0, 255, 0.5);
+}
+.neon-text-green {
+  color: var(--neon-green);
+  text-shadow: 0 0 8px rgba(57, 255, 20, 0.5);
+}
+.neon-text-red {
+  color: var(--neon-red);
+  text-shadow: 0 0 8px rgba(255, 59, 48, 0.5);
+}
+
+/* 로딩 오버레이 */
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: #030407;
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: opacity 0.5s ease;
+}
+
+.loader-container {
+  text-align: center;
+}
+
+.spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(0, 240, 255, 0.1);
+  border-left-color: var(--neon-blue);
+  border-radius: 50%;
+  margin: 0 auto 20px;
+  animation: spin 1s linear infinite;
+  box-shadow: var(--glow-shadow);
+}
+
+.loader-container h1 {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  color: var(--neon-blue);
+}
+
+.status-msg {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 메인 앱 레이아웃 */
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+}
+
+/* 글래스모피즘 사이드바 */
+.sidebar {
+  width: 340px;
+  background: var(--panel-bg);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-right: 1px solid var(--panel-border);
+  padding: 25px;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  z-index: 10;
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+  overflow-y: auto;
+}
+
+/* 스크롤바 디자인 */
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.3);
+  border-radius: 2px;
+}
+
+.brand {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 240, 255, 0.2);
+  padding-bottom: 15px;
+}
+
+.brand h2 {
+  font-size: 1.5rem;
+  font-weight: 900;
+}
+
+.brand .version {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-family: var(--font-sci-fi);
+}
+
+/* 패널 공통 스타일 */
+.panel {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 15px;
+}
+
+.panel-title {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  border-left: 2px solid var(--neon-blue);
+  padding-left: 8px;
+  font-weight: 700;
+}
+
+/* 시스템 모니터 그리드 */
+.status-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.status-item {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.status-item.full-width {
+  grid-column: span 2;
+}
+
+.status-item .label {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+}
+
+.status-item .value {
+  font-size: 1.1rem;
+  font-weight: bold;
+}
+
+.status-item .numeric {
+  font-family: var(--font-sci-fi);
+}
+
+/* 설명서 목록 */
+.manual-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.manual-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.01);
+  padding: 8px;
+  border-radius: 6px;
+  border-left: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.manual-list li:hover {
+  background: rgba(0, 240, 255, 0.03);
+  border-left-color: var(--neon-blue);
+}
+
+.manual-list .gesture-icon {
+  font-size: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.manual-list strong {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+.manual-list p {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* 컨트롤/설정 패널 */
+.setting-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.setting-row:last-child {
+  margin-bottom: 0;
+}
+
+.setting-row > label {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 토글 스위치 */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  align-self: flex-start;
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: .3s;
+  border-radius: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.toggle-switch .slider:before {
+  position: absolute;
+  content: "";
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background-color: var(--text-secondary);
+  transition: .3s;
+  border-radius: 50%;
+}
+
+.toggle-switch input:checked + .slider {
+  background-color: rgba(0, 240, 255, 0.2);
+  border-color: var(--neon-blue);
+}
+
+.toggle-switch input:checked + .slider:before {
+  transform: translateX(26px);
+  background-color: var(--neon-blue);
+  box-shadow: 0 0 8px var(--neon-blue);
+}
+
+/* 버튼 및 버튼 그룹 */
+.button-group {
+  display: flex;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  padding: 3px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  flex: 1;
+  transition: all 0.2s ease;
+  font-family: var(--font-sci-fi);
+}
+
+.btn:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn.active {
+  background: var(--neon-blue);
+  color: #000000;
+  font-weight: bold;
+  box-shadow: var(--glow-shadow);
+}
+
+.btn-warning {
+  background: rgba(255, 59, 48, 0.1);
+  border: 1px solid var(--neon-red);
+  color: var(--neon-red);
+  font-weight: 600;
+  letter-spacing: 1px;
+  padding: 12px;
+  border-radius: 6px;
+  transition: all 0.3s ease;
+}
+
+.btn-warning:hover {
+  background: var(--neon-red);
+  color: #ffffff;
+  box-shadow: 0 0 15px rgba(255, 59, 48, 0.5);
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* 메인 뷰포트 영역 */
+.viewport {
+  flex: 1;
+  height: 100vh;
+  position: relative;
+  background-color: #020306;
+}
+
+/* 인터랙티브 파티클 캔버스 */
+#interactive-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* 웹캠 오버레이 컨테이너 */
+.webcam-container {
+  position: absolute;
+  bottom: 25px;
+  right: 25px;
+  width: 240px;
+  height: 180px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8), var(--glow-shadow);
+  z-index: 5;
+  transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  background: #000;
+  transform-origin: bottom right;
+}
+
+.webcam-container.hidden {
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+#webcam {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* 카메라 좌우 반전 */
+}
+
+#debug-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  transform: scaleX(-1); /* 비디오와 대칭 맞추기 위해 좌우 반전 */
+  pointer-events: none;
+}
+
+/* 가상 UI 오버레이 */
+.virtual-ui-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 3;
+  pointer-events: none; /* 클릭 이벤트는 JS에서 좌표 매핑으로 처리 */
+}
+
+/* 에어 마우스 커서 */
+#gesture-cursor {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.cursor-ring {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border: 1.5px solid var(--neon-blue);
+  border-radius: 50%;
+  box-shadow: var(--glow-shadow);
+  animation: pulse-ring 1.5s infinite;
+}
+
+.cursor-dot {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background-color: var(--neon-blue);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 5px var(--neon-blue);
+}
+
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 0.8; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.8); opacity: 0.8; }
+}
+
+/* 가상 버튼 시각적 피드백 효과 */
+.virtual-btn-element {
+  position: absolute;
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  background: rgba(10, 15, 30, 0.4);
+  border-radius: 8px;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: var(--font-sci-fi);
+  font-size: 0.8rem;
+  box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.1);
+  backdrop-filter: blur(5px);
+  transition: all 0.2s ease;
+}
