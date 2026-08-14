@@ -5,6 +5,7 @@ interface SidebarProps {
   fps: number;
   handsCount: number;
   activeGesture: string;
+  dualEffect: string;
   showWebcam: boolean;
   setShowWebcam: (show: boolean) => void;
   isSkeletonVisible: boolean;
@@ -18,6 +19,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   fps,
   handsCount,
   activeGesture,
+  dualEffect,
   showWebcam,
   setShowWebcam,
   isSkeletonVisible,
@@ -40,6 +42,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
         return 'neon-text-red';
       default:
         return '';
+    }
+  };
+
+  const getEffectClass = (effect: string) => {
+    switch (effect) {
+      case 'ENERGY_BEAM':
+        return 'neon-text-red';
+      case 'BIG_BANG':
+        return 'neon-text-green';
+      case 'VORTEX':
+        return 'neon-text-blue';
+      default:
+        return 'neon-text-purple';
     }
   };
 
@@ -66,10 +81,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {handsCount}
             </span>
           </div>
-          <div className="status-item full-width">
+          <div className="status-item">
             <span className="label">GESTURE</span>
             <span id="stat-gesture" className={`value orbitron ${getGestureClass(activeGesture)}`}>
               {activeGesture === 'NONE' ? 'DETECTING...' : activeGesture}
+            </span>
+          </div>
+          <div className="status-item">
+            <span className="label">DUAL EFFECT</span>
+            <span id="stat-dual-effect" className={`value orbitron ${getEffectClass(dualEffect)}`}>
+              {dualEffect === 'NONE' ? 'READY' : dualEffect}
             </span>
           </div>
         </div>

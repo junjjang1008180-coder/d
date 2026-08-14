@@ -360,7 +360,19 @@ function App() {
       <LoadingOverlay isLoading={!isModelLoaded} statusMessage={statusMessage} />
 
       {/* 제어판 & 상태 패널 사이드바 */}
-
+      <Sidebar
+        fps={fps}
+        handsCount={handsCount}
+        activeGesture={activeGesture}
+        dualEffect={dualEffect}
+        showWebcam={showWebcam}
+        setShowWebcam={setShowWebcam}
+        isSkeletonVisible={isSkeletonVisible}
+        setIsSkeletonVisible={setIsSkeletonVisible}
+        activeTheme={activeTheme}
+        setActiveTheme={setActiveTheme}
+        onClearCanvas={handleClearCanvas}
+      />
 
       {/* 메인 뷰포트 (인터랙션 스크린) */}
       <Viewport
